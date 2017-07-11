@@ -54,9 +54,12 @@ class Worker : public WorkerInterface {
                             StatusCallback done) override;
 
   void RunGraphAsync(CallOptions* opts, RunGraphRequestWrapper* request,
-                     RunGraphResponse* response, StatusCallback done) override;
+                     MutableRunGraphResponseWrapper* response,
+                     StatusCallback done) override;
 
   MutableRunGraphRequestWrapper* CreateRunGraphRequest() override;
+
+  MutableRunGraphResponseWrapper* CreateRunGraphResponse() override;
 
   void CleanupGraphAsync(const CleanupGraphRequest* request,
                          CleanupGraphResponse* response,
@@ -89,7 +92,10 @@ class Worker : public WorkerInterface {
 
   struct PartialRunState {
     CancellationManager* cancellation_manager;
-    Notification executor_done;
+
+    bool executor_done = false;
+    StatusCallback final_callback = nullptr;
+    Status final_status;
 
     explicit PartialRunState(CancellationManager* cm)
         : cancellation_manager(cm) {}
@@ -112,15 +118,23 @@ class Worker : public WorkerInterface {
 
   void RemovePartialRun(const string& graph_handle, int step_id);
 
+  void MaybeCallFinalCallback(const string& graph_handle, int step_id,
+                              const Status& executor_status);
+
+  void SetOrCallFinalCallback(const string& graph_handle, int step_id,
+                              StatusCallback done, const Status& s);
+
   Status PrepareRunGraph(RunGraphRequestWrapper* req,
                          GraphMgr::NamedTensors* in,
                          GraphMgr::NamedTensors* out);
 
   void DoRunGraph(CallOptions* opts, RunGraphRequestWrapper* request,
-                  RunGraphResponse* response, StatusCallback done);
+                  MutableRunGraphResponseWrapper* response,
+                  StatusCallback done);
 
   void DoPartialRunGraph(CallOptions* opts, RunGraphRequestWrapper* request,
-                         RunGraphResponse* response, StatusCallback done);
+                         MutableRunGraphResponseWrapper* response,
+                         StatusCallback done);
 
   TF_DISALLOW_COPY_AND_ASSIGN(Worker);
 };

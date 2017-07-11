@@ -43,11 +43,13 @@ do
         --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
         //tensorflow/core:android_tensorflow_lib \
         //tensorflow/contrib/android:libtensorflow_inference.so \
-        //tensorflow/examples/android:libtensorflow_demo.so
+        //tensorflow/examples/android:libtensorflow_demo.so \
+        //tensorflow/tools/benchmark:benchmark_model
 
     copy_lib bazel-bin/tensorflow/core/libandroid_tensorflow_lib.lo
     copy_lib bazel-bin/tensorflow/contrib/android/libtensorflow_inference.so
     copy_lib bazel-bin/tensorflow/examples/android/libtensorflow_demo.so
+    copy_lib bazel-bin/tensorflow/tools/benchmark/benchmark_model
 done
 
 # Build Jar and also demo containing native libs for all architectures.
@@ -63,3 +65,23 @@ bazel --bazelrc=/dev/null build -c opt --fat_apk_cpu=${CPUS} \
 echo "Copying demo and Jar to ${OUT_DIR}"
 cp bazel-bin/tensorflow/examples/android/tensorflow_demo.apk \
     bazel-bin/tensorflow/contrib/android/libandroid_tensorflow_inference_java.jar ${OUT_DIR}
+
+# Test Makefile build just to make sure it still works.
+if [ -z "$NDK_ROOT" ]; then
+   export NDK_ROOT=${ANDROID_NDK_HOME}
+fi
+
+echo "========== Benchmark Makefile Build Test =========="
+tensorflow/contrib/makefile/build_all_android.sh
+
+echo "========== Demo Makefile Build Test =========="
+tensorflow/contrib/makefile/build_all_android.sh \
+-s $(pwd)/tensorflow/contrib/makefile/sub_makefiles/android/Makefile.in \
+-t "libtensorflow_inference.so libtensorflow_demo.so"
+
+# Test Makefile build for tensorflow runtime with hexagon.
+# -b ... build only, -p ... use prebuilt binaries
+# This uses prebuilt binaries for hexagon dependencies because Building
+# hexagon binaries from source code requires qualcomm sdk.
+echo "========== Hexagon Build Test =========="
+tensorflow/contrib/makefile/samples/build_and_run_inception_hexagon.sh -bp

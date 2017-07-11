@@ -1091,6 +1091,7 @@ REGISTER_OP("TensorArrayV3")
       ShapeHandle unused;
       TF_RETURN_IF_ERROR(c->WithRank(c->input(0), 0, &unused));
       c->set_output(0, c->Vector(2));
+      c->set_output(1, c->Scalar());
       return Status::OK();
     })
     .Doc(R"doc(
@@ -1127,6 +1128,7 @@ REGISTER_OP("TensorArrayGradV3")
       TF_RETURN_IF_ERROR(c->WithRank(c->input(0), 1, &handle));
       TF_RETURN_IF_ERROR(c->WithValue(c->Dim(handle, 0), 2, &unused_dim));
       c->set_output(0, c->Vector(2));
+      c->set_output(1, c->Scalar());
       return Status::OK();
     })
     .Doc(R"doc(
@@ -1429,8 +1431,9 @@ REGISTER_OP("TensorArray")
     .Attr("element_shape: shape = { unknown_rank: true }")
     .Output("handle: Ref(string)")
     .SetIsStateful()
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArrayV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArrayV2")
     .Input("size: int32")
     .Attr("dtype: type")
@@ -1453,8 +1456,9 @@ REGISTER_OP("TensorArrayGrad")
     .Output("grad_handle: Ref(string)")
     .Attr("source: string")
     .SetIsStateful()
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArrayGradV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArrayGradV2")
     .Input("handle: string")
     .Input("flow_in: float")
@@ -1477,8 +1481,9 @@ REGISTER_OP("TensorArrayWrite")
     .Input("flow_in: float")
     .Output("flow_out: float")
     .Attr("T: type")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArrayWriteV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArrayWriteV2")
     .Input("handle: string")
     .Input("index: int32")
@@ -1504,8 +1509,9 @@ REGISTER_OP("TensorArrayRead")
     .Input("flow_in: float")
     .Output("value: dtype")
     .Attr("dtype: type")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArrayReadV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArrayReadV2")
     .Input("handle: string")
     .Input("index: int32")
@@ -1529,7 +1535,7 @@ REGISTER_OP("TensorArrayPack")
     .Output("value: dtype")
     .Attr("dtype: type")
     .Attr("element_shape: shape = { unknown_rank: true }")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArrayGatherV3 with RangeOp");
 REGISTER_OP("TensorArrayUnpack")
     .Input("handle: Ref(string)")
@@ -1537,7 +1543,7 @@ REGISTER_OP("TensorArrayUnpack")
     .Input("flow_in: float")
     .Output("flow_out: float")
     .Attr("T: type")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(20, "Use TensorArrayScatterV3 with RangeOp");
 REGISTER_OP("TensorArrayGather")
     .Input("handle: Ref(string)")
@@ -1546,8 +1552,9 @@ REGISTER_OP("TensorArrayGather")
     .Output("value: dtype")
     .Attr("dtype: type")
     .Attr("element_shape: shape = { unknown_rank: true }")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArrayGatherV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArrayGatherV2")
     .Input("handle: string")
     .Input("indices: int32")
@@ -1572,8 +1579,9 @@ REGISTER_OP("TensorArrayScatter")
     .Input("flow_in: float")
     .Output("flow_out: float")
     .Attr("T: type")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(19, "Use TensorArrayGradV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArrayScatterV2")
     .Input("handle: string")
     .Input("indices: int32")
@@ -1598,7 +1606,7 @@ REGISTER_OP("TensorArrayConcat")
     .Output("lengths: int64")
     .Attr("dtype: type")
     .Attr("element_shape_except0: shape = { unknown_rank: true }")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArrayGradV3");
 REGISTER_OP("TensorArrayConcatV2")
     .Input("handle: string")
@@ -1626,8 +1634,9 @@ REGISTER_OP("TensorArraySplit")
     .Input("flow_in: float")
     .Output("flow_out: float")
     .Attr("T: type")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArraySplitV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArraySplitV2")
     .Input("handle: string")
     .Input("value: T")
@@ -1650,8 +1659,9 @@ REGISTER_OP("TensorArraySize")
     .Input("handle: Ref(string)")
     .Input("flow_in: float")
     .Output("size: int32")
-    .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
+    .SetShapeFn(shape_inference::UnknownShape)
     .Deprecated(16, "Use TensorArraySizeV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArraySizeV2")
     .Input("handle: string")
     .Input("flow_in: float")
@@ -1668,6 +1678,7 @@ REGISTER_OP("TensorArrayClose")
     .Input("handle: Ref(string)")
     .SetShapeFn([](InferenceContext* c) { return Status::OK(); })
     .Deprecated(16, "Use TensorArrayCloseV3");
+// TODO(cwhipkey): mark this deprecated in favor of V3.
 REGISTER_OP("TensorArrayCloseV2")
     .Input("handle: string")
     .SetShapeFn([](InferenceContext* c) {
@@ -2143,11 +2154,19 @@ REGISTER_OP("GetSessionHandle")
     .Output("handle: string")
     .Attr("T: type")
     .SetShapeFn(shape_inference::ScalarShape)
+    .Deprecated(23, "Use GetSessionHandleV2");
+
+REGISTER_OP("GetSessionHandleV2")
+    .Input("value: T")
+    .Output("handle: resource")
+    .Attr("T: type")
+    .SetShapeFn(shape_inference::ScalarShape)
     .Doc(R"doc(
 Store the input tensor in the state of the current session.
 
 value: The tensor to be stored.
-handle: The handle for the tensor stored in the session state.
+handle: The handle for the tensor stored in the session state, represented
+  as a ResourceHandle object.
 )doc");
 
 REGISTER_OP("GetSessionTensor")
@@ -2178,6 +2197,60 @@ REGISTER_OP("DeleteSessionTensor")
 Delete the tensor specified by its handle in the session.
 
 handle: The handle for a tensor stored in the session state.
+)doc");
+
+REGISTER_OP("Stage")
+    .Input("values: dtypes")
+    .Attr("dtypes: list(type)")
+    .Attr("container: string = ''")
+    .Attr("shared_name: string = ''")
+    .SetShapeFn(shape_inference::UnknownShape)
+    .SetIsStateful()
+    .Doc(R"doc(
+Stage values similar to a lightweight Enqueue.  The basic functionality of this
+Op is similar to a queue with many fewer capabilities and options.  This Op is
+optimized for performance.
+
+values: a list of tensors
+container: If non-empty, this queue is placed in the given container. Otherwise,
+  a default container is used.
+shared_name: It is necessary to match this name to the matching Unstage Op.
+    )doc");
+
+REGISTER_OP("Unstage")
+    .Output("values: dtypes")
+    .Attr("dtypes: list(type)")
+    .Attr("container: string = ''")
+    .Attr("shared_name: string = ''")
+    .SetShapeFn(shape_inference::UnknownShape)
+    .SetIsStateful()
+    .Doc(R"doc(
+Op is similar to a lightweight Dequeue.  The basic funtionality is similar to
+dequeue with many fewer capabilities and options.  This Op is optimized for
+performance.
+    )doc");
+
+REGISTER_OP("RecordInput")
+    .Output("records: string")
+    .Attr("file_pattern: string")
+    .Attr("file_random_seed: int = 301")
+    .Attr("file_shuffle_shift_ratio: float = 0")
+    .Attr("file_buffer_size: int = 10000")
+    .Attr("file_parallelism: int = 16")
+    .Attr("batch_size: int = 32")
+    .SetIsStateful()
+    .SetShapeFn(shape_inference::UnknownShape)
+    .Doc(R"doc(
+Emits randomized records.
+
+records: A tensor of shape [batch_size].
+file_pattern: Glob pattern for the data files.
+file_random_seed: Random seeds used to produce randomized records.
+file_shuffle_shift_ratio: Shifts the list of files after the list is randomly
+    shuffled.
+file_buffer_size: The randomization shuffling buffer.
+file_parallelism: How many sstables are opened and concurrently iterated over.
+batch_size: The batch size.
 )doc");
 
 }  // namespace tensorflow
