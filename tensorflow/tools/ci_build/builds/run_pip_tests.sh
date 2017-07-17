@@ -84,7 +84,10 @@ BAZEL_FLAGS="--define=no_tensorflow_py_deps=true --test_lang_filters=py \
 
 BAZEL_TEST_TARGETS="//${PIP_TEST_PREFIX}/tensorflow/contrib/... \
   //${PIP_TEST_PREFIX}/tensorflow/python/... \
-  //${PIP_TEST_PREFIX}/tensorflow/tensorboard/..."
+  -//${PIP_TEST_PREFIX}/tensorflow/contrib/tensorboard/..."
+
+# Clean the bazel cache
+bazel clean
 
 # Run configure again, we might be using a different python path, due to
 # virtualenv.
@@ -126,4 +129,3 @@ fi
 # Actually run the tests.
 bazel test ${BAZEL_FLAGS} ${BAZEL_PARALLEL_TEST_FLAGS} -- \
     ${BAZEL_TEST_TARGETS}
-

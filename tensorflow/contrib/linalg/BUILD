@@ -30,7 +30,7 @@ cuda_py_tests(
 
 cuda_py_tests(
     name = "linear_operator_addition_test",
-    size = "medium",
+    size = "small",
     srcs = ["python/kernel_tests/linear_operator_addition_test.py"],
     additional_deps = [
         ":linalg_py",
@@ -43,7 +43,6 @@ cuda_py_tests(
         "//tensorflow/python:math_ops",
         "//tensorflow/python:platform_test",
     ],
-    shard_count = 5,
 )
 
 cuda_py_tests(
@@ -61,7 +60,6 @@ cuda_py_tests(
         "//tensorflow/python:math_ops",
         "//tensorflow/python:platform_test",
     ],
-    shard_count = 5,
 )
 
 cuda_py_tests(
@@ -79,7 +77,6 @@ cuda_py_tests(
         "//tensorflow/python:platform_test",
         "//tensorflow/python:random_ops",
     ],
-    shard_count = 5,
 )
 
 cuda_py_tests(
@@ -96,7 +93,6 @@ cuda_py_tests(
         "//tensorflow/python:platform_test",
         "//tensorflow/python:random_ops",
     ],
-    shard_count = 5,
 )
 
 cuda_py_tests(
@@ -112,7 +108,6 @@ cuda_py_tests(
         "//tensorflow/python:framework_test_lib",
         "//tensorflow/python:platform_test",
     ],
-    shard_count = 5,
 )
 
 cuda_py_tests(
@@ -128,7 +123,6 @@ cuda_py_tests(
         "//tensorflow/python:framework_test_lib",
         "//tensorflow/python:platform_test",
     ],
-    shard_count = 5,
 )
 
 cuda_py_tests(
@@ -149,7 +143,7 @@ cuda_py_tests(
 
 cuda_py_tests(
     name = "linear_operator_util_test",
-    size = "small",
+    size = "medium",
     srcs = ["python/kernel_tests/linear_operator_util_test.py"],
     additional_deps = [
         ":linalg_py",
@@ -160,7 +154,6 @@ cuda_py_tests(
         "//tensorflow/python:math_ops",
         "//tensorflow/python:platform_test",
     ],
-    shard_count = 5,
 )
 
 py_library(
@@ -172,12 +165,16 @@ py_library(
         "//tensorflow/python:array_ops",
         "//tensorflow/python:check_ops",
         "//tensorflow/python:client_testlib",
+        "//tensorflow/python:common_shapes",
         "//tensorflow/python:control_flow_ops",
-        "//tensorflow/python:framework",
         "//tensorflow/python:framework_for_generated_wrappers",
         "//tensorflow/python:linalg_ops",
         "//tensorflow/python:math_ops",
+        "//tensorflow/python:platform",
         "//tensorflow/python:random_ops",
+        "//tensorflow/python:random_seed",
+        "//tensorflow/python:tensor_util",
+        "//tensorflow/python:util",
         "//third_party/py/numpy",
         "@six_archive//:six",
     ],

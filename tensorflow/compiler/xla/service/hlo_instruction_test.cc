@@ -21,15 +21,20 @@ limitations under the License.
 #include <vector>
 
 #include "tensorflow/compiler/xla/literal_util.h"
+#include "tensorflow/compiler/xla/protobuf_util.h"
 #include "tensorflow/compiler/xla/service/dfs_hlo_visitor_with_default.h"
 #include "tensorflow/compiler/xla/service/hlo_computation.h"
 #include "tensorflow/compiler/xla/shape_util.h"
+#include "tensorflow/compiler/xla/test.h"
 #include "tensorflow/compiler/xla/test_helpers.h"
 #include "tensorflow/compiler/xla/tests/hlo_test_base.h"
 #include "tensorflow/compiler/xla/util.h"
 
 namespace xla {
 namespace {
+
+using ::testing::ElementsAre;
+using ::testing::UnorderedElementsAre;
 
 class HloInstructionTest : public HloTestBase {
  protected:
@@ -148,9 +153,9 @@ TEST_F(HloInstructionTest, UserWithTwoOperands) {
   auto add = HloInstruction::CreateBinary(r0f32_, HloOpcode::kAdd, foo.get(),
                                           bar.get());
 
-  ExpectEqOrdered(add->operands(), {foo.get(), bar.get()});
-  ExpectEqUnordered(foo->users(), {add.get()});
-  ExpectEqUnordered(bar->users(), {add.get()});
+  EXPECT_THAT(add->operands(), UnorderedElementsAre(foo.get(), bar.get()));
+  EXPECT_THAT(foo->users(), UnorderedElementsAre(add.get()));
+  EXPECT_THAT(bar->users(), UnorderedElementsAre(add.get()));
 
   OpAndUserCollectingVisitor visitor;
   ASSERT_IS_OK(add->Accept(&visitor));
@@ -227,7 +232,7 @@ TEST_F(HloInstructionTest, MultipleUsersAndOperands) {
   //                 -------
   auto param0 = HloInstruction::CreateParameter(0, r0f32_, "param0");
   auto param1 = HloInstruction::CreateParameter(1, r0f32_, "param1");
-  auto c0 = HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
+  auto c0 = HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
   auto addleft = HloInstruction::CreateBinary(r0f32_, HloOpcode::kAdd,
                                               param0.get(), c0.get());
   auto addright = HloInstruction::CreateBinary(r0f32_, HloOpcode::kAdd,
@@ -266,7 +271,7 @@ TEST_F(HloInstructionTest, MultipleUsersAndOperandsWithUnaryOps) {
   //                 -------
   auto param0 = HloInstruction::CreateParameter(0, r0f32_, "param0");
   auto param1 = HloInstruction::CreateParameter(1, r0f32_, "param1");
-  auto c0 = HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
+  auto c0 = HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
   auto neg1 = HloInstruction::CreateUnary(r0f32_, HloOpcode::kNegate, c0.get());
   auto addleft = HloInstruction::CreateBinary(r0f32_, HloOpcode::kAdd,
                                               param0.get(), neg1.get());
@@ -302,7 +307,7 @@ TEST_F(HloInstructionTest, TrivialMap) {
   auto param =
       builder.AddInstruction(HloInstruction::CreateParameter(0, r0f32, "x"));
   auto value = builder.AddInstruction(
-      HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.0)));
+      HloInstruction::CreateConstant(Literal::CreateR0<float>(1.0)));
   builder.AddInstruction(
       HloInstruction::CreateBinary(r0f32, HloOpcode::kAdd, param, value));
   auto add_f32 = builder.Build();
@@ -344,9 +349,8 @@ TEST_F(HloInstructionTest, TrivialReduce) {
 
   // Builds a parameter and an initial value and feeds them to the reduce.
   auto param0 = HloInstruction::CreateParameter(0, f32a100x10, "");
-  auto const0 =
-      HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(0.0f));
-  auto c0 = HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
+  auto const0 = HloInstruction::CreateConstant(Literal::CreateR0<float>(0.0f));
+  auto c0 = HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
   auto reduce =
       HloInstruction::CreateReduce(f32v100, param0.get(), const0.get(),
                                    /*dimensions_to_reduce=*/{1}, add_f32.get());
@@ -383,12 +387,13 @@ TEST_F(HloInstructionTest, ReplaceUseInBinaryOps) {
   EXPECT_EQ(1, foo->user_count());
   EXPECT_EQ(2, bar->user_count());
 
-  ExpectEqUnordered(foo->users(), {add_foobar.get()});
-  ExpectEqOrdered(add_foobar->operands(), {foo.get(), bar.get()});
+  EXPECT_THAT(foo->users(), UnorderedElementsAre(add_foobar.get()));
+  EXPECT_THAT(add_foobar->operands(), ElementsAre(foo.get(), bar.get()));
 
-  ExpectEqUnordered(bar->users(), {add_foobar.get(), add_foofoo.get()});
-  ExpectEqOrdered(add_foobar->operands(), {foo.get(), bar.get()});
-  ExpectEqOrdered(add_foofoo->operands(), {bar.get(), bar.get()});
+  EXPECT_THAT(bar->users(),
+              UnorderedElementsAre(add_foobar.get(), add_foofoo.get()));
+  EXPECT_THAT(add_foobar->operands(), ElementsAre(foo.get(), bar.get()));
+  EXPECT_THAT(add_foofoo->operands(), ElementsAre(bar.get(), bar.get()));
 }
 
 TEST_F(HloInstructionTest, ReplaceUseInVariadicOp) {
@@ -404,16 +409,17 @@ TEST_F(HloInstructionTest, ReplaceUseInVariadicOp) {
                                                  foo.get(), bar.get());
 
   EXPECT_EQ(2, foo->user_count());
-  ExpectEqUnordered(foo->users(), {tuple.get(), add_foobar.get()});
+  EXPECT_THAT(foo->users(),
+              UnorderedElementsAre(tuple.get(), add_foobar.get()));
 
   // Replace the use of foo in tuple with bar.
   ASSERT_IS_OK(foo->ReplaceUseWith(tuple.get(), bar.get()));
 
-  ExpectEqUnordered(foo->users(), {add_foobar.get()});
+  EXPECT_THAT(foo->users(), UnorderedElementsAre(add_foobar.get()));
 
   // Both uses of foo in tuple should have been replaced with bar.
-  ExpectEqOrdered(tuple->operands(),
-                  {bar.get(), bar.get(), baz.get(), bar.get()});
+  EXPECT_THAT(tuple->operands(),
+              ElementsAre(bar.get(), bar.get(), baz.get(), bar.get()));
 }
 
 TEST_F(HloInstructionTest, ReplaceUseInUnaryOp) {
@@ -426,7 +432,7 @@ TEST_F(HloInstructionTest, ReplaceUseInUnaryOp) {
   auto log = HloInstruction::CreateUnary(r0f32_, HloOpcode::kLog, foo.get());
 
   EXPECT_EQ(2, foo->user_count());
-  ExpectEqUnordered(foo->users(), {exp.get(), log.get()});
+  EXPECT_THAT(foo->users(), UnorderedElementsAre(exp.get(), log.get()));
   EXPECT_EQ(0, bar->user_count());
 
   // Replace the use of foo in exp with bar.
@@ -434,8 +440,8 @@ TEST_F(HloInstructionTest, ReplaceUseInUnaryOp) {
 
   // The use of foo in log should not have been affected.
   EXPECT_EQ(1, foo->user_count());
-  ExpectEqUnordered(foo->users(), {log.get()});
-  ExpectEqOrdered(log->operands(), {foo.get()});
+  EXPECT_THAT(foo->users(), UnorderedElementsAre(log.get()));
+  EXPECT_THAT(log->operands(), ElementsAre(foo.get()));
 
   // Bar should now be used in exp.
   EXPECT_EQ(1, bar->user_count());
@@ -466,7 +472,8 @@ TEST_F(HloInstructionTest, ReplaceAllUsesWithInBinaryOps) {
   EXPECT_EQ(0, foo->user_count());
   EXPECT_EQ(2, bar->user_count());
 
-  ExpectEqUnordered(bar->users(), {add_foobar.get(), add_foofoo.get()});
+  EXPECT_THAT(bar->users(),
+              UnorderedElementsAre(add_foobar.get(), add_foofoo.get()));
 }
 
 TEST_F(HloInstructionTest, ReplaceAllUsesInMultipleOps) {
@@ -490,7 +497,8 @@ TEST_F(HloInstructionTest, ReplaceAllUsesInMultipleOps) {
   EXPECT_EQ(0, foo->user_count());
   EXPECT_EQ(3, bar->user_count());
 
-  ExpectEqUnordered(bar->users(), {add_foobar.get(), exp.get(), tuple.get()});
+  EXPECT_THAT(bar->users(),
+              UnorderedElementsAre(add_foobar.get(), exp.get(), tuple.get()));
 }
 
 // Simple visitor that collects and post-processes each node in the graph.
@@ -551,38 +559,41 @@ TEST_F(HloInstructionTest, PostProcessAllVisitedNodes) {
 TEST_F(HloInstructionTest, SingletonFusionOp) {
   // Create a fusion instruction containing a single unary operation.
   auto constant =
-      HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
+      HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
   auto exp =
       HloInstruction::CreateUnary(r0f32_, HloOpcode::kExp, constant.get());
 
   auto fusion = HloInstruction::CreateFusion(
       r0f32_, HloInstruction::FusionKind::kLoop, exp.get());
 
-  ExpectEqOrdered(fusion->operands(), {constant.get()});
-  ExpectEqUnordered(constant->users(), {fusion.get(), exp.get()});
+  EXPECT_THAT(fusion->operands(), ElementsAre(constant.get()));
+  EXPECT_THAT(constant->users(), UnorderedElementsAre(fusion.get(), exp.get()));
 }
 
 TEST_F(HloInstructionTest, BinaryFusionOp) {
   // Create a fusion instruction containing a single binary operation.
   auto constant1 =
-      HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
+      HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
   auto constant2 =
-      HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(42.1f));
+      HloInstruction::CreateConstant(Literal::CreateR0<float>(42.1f));
   auto add = HloInstruction::CreateBinary(r0f32_, HloOpcode::kAdd,
                                           constant1.get(), constant2.get());
 
   auto fusion = HloInstruction::CreateFusion(
       r0f32_, HloInstruction::FusionKind::kLoop, add.get());
 
-  ExpectEqOrdered(fusion->operands(), {constant1.get(), constant2.get()});
-  ExpectEqUnordered(constant1->users(), {fusion.get(), add.get()});
-  ExpectEqUnordered(constant2->users(), {fusion.get(), add.get()});
+  EXPECT_THAT(fusion->operands(),
+              ElementsAre(constant1.get(), constant2.get()));
+  EXPECT_THAT(constant1->users(),
+              UnorderedElementsAre(fusion.get(), add.get()));
+  EXPECT_THAT(constant2->users(),
+              UnorderedElementsAre(fusion.get(), add.get()));
 }
 
 TEST_F(HloInstructionTest, ChainFusionOp) {
   // Create a chain of fused unary ops.
   auto constant =
-      HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
+      HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
   auto exp1 =
       HloInstruction::CreateUnary(r0f32_, HloOpcode::kExp, constant.get());
   auto exp2 = HloInstruction::CreateUnary(r0f32_, HloOpcode::kExp, exp1.get());
@@ -593,8 +604,28 @@ TEST_F(HloInstructionTest, ChainFusionOp) {
   fusion->FuseInstruction(exp2.get());
   fusion->FuseInstruction(exp1.get());
 
-  ExpectEqOrdered(fusion->operands(), {constant.get()});
-  ExpectEqUnordered(constant->users(), {fusion.get(), exp1.get()});
+  EXPECT_THAT(fusion->operands(), ElementsAre(constant.get()));
+  EXPECT_THAT(constant->users(),
+              UnorderedElementsAre(fusion.get(), exp1.get()));
+}
+
+TEST_F(HloInstructionTest, PreserveMetadataInFusionAndClone) {
+  // Create a chain of fused unary ops.
+  auto constant =
+      HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
+  auto exp1 =
+      HloInstruction::CreateUnary(r0f32_, HloOpcode::kExp, constant.get());
+  auto exp2 = HloInstruction::CreateUnary(r0f32_, HloOpcode::kExp, exp1.get());
+  OpMetadata metadata;
+  metadata.set_op_name("tf_op");
+  exp1->set_metadata(metadata);
+  exp2->set_metadata(metadata);
+
+  auto fusion = HloInstruction::CreateFusion(
+      r0f32_, HloInstruction::FusionKind::kLoop, exp2.get());
+  auto* fused = fusion->FuseInstruction(exp1.get());
+  EXPECT_TRUE(protobuf_util::ProtobufEquals(metadata, fusion->metadata()));
+  EXPECT_TRUE(protobuf_util::ProtobufEquals(metadata, fused->metadata()));
 }
 
 TEST_F(HloInstructionTest, FusionOpWithCalledComputations) {
@@ -612,7 +643,7 @@ TEST_F(HloInstructionTest, FusionOpWithCalledComputations) {
   std::unique_ptr<HloComputation> computation_y = make_map_computation();
 
   auto constant =
-      HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
+      HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
   auto map_1_x =
       HloInstruction::CreateMap(scalar_shape, {constant.get()},
                                 computation_x.get(), /*static_operands=*/{});
@@ -626,15 +657,15 @@ TEST_F(HloInstructionTest, FusionOpWithCalledComputations) {
   auto fusion = HloInstruction::CreateFusion(
       scalar_shape, HloInstruction::FusionKind::kLoop, map_3_y.get());
 
-  ASSERT_EQ(fusion->called_computations().size(), 1);
-  EXPECT_EQ(fusion->called_computations()[0], computation_y.get());
+  EXPECT_THAT(fusion->called_computations(), ElementsAre(computation_y.get()));
 
   fusion->FuseInstruction(map_2_x.get());
-  ASSERT_EQ(fusion->called_computations().size(), 2);
-  EXPECT_EQ(fusion->called_computations()[1], computation_x.get());
+  EXPECT_THAT(fusion->called_computations(),
+              ElementsAre(computation_y.get(), computation_x.get()));
 
   fusion->FuseInstruction(map_1_x.get());
-  ASSERT_EQ(fusion->called_computations().size(), 2);
+  EXPECT_THAT(fusion->called_computations(),
+              ElementsAre(computation_y.get(), computation_x.get()));
 }
 
 TEST_F(HloInstructionTest, ComplexFusionOp) {
@@ -649,9 +680,9 @@ TEST_F(HloInstructionTest, ComplexFusionOp) {
   //
   // Notable complexities are repeated operands in a same instruction, different
   // shapes, use of value in different expressions.
-  auto c1 = HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(1.1f));
-  auto c2 = HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(2.1f));
-  auto c3 = HloInstruction::CreateConstant(LiteralUtil::CreateR0<float>(9.0f));
+  auto c1 = HloInstruction::CreateConstant(Literal::CreateR0<float>(1.1f));
+  auto c2 = HloInstruction::CreateConstant(Literal::CreateR0<float>(2.1f));
+  auto c3 = HloInstruction::CreateConstant(Literal::CreateR0<float>(9.0f));
 
   auto add =
       HloInstruction::CreateBinary(r0f32_, HloOpcode::kAdd, c1.get(), c2.get());
@@ -675,8 +706,9 @@ TEST_F(HloInstructionTest, ComplexFusionOp) {
 
   // Operands in the fusion instruction's operands() vector should be in the
   // order in which their users were added fused.
-  ExpectEqOrdered(fusion->operands(), {c1.get(), c3.get(), c2.get()});
-  ExpectEqUnordered(c1->users(), {add.get(), tuple.get(), fusion.get()});
+  EXPECT_THAT(fusion->operands(), ElementsAre(c1.get(), c3.get(), c2.get()));
+  EXPECT_THAT(c1->users(),
+              UnorderedElementsAre(add.get(), tuple.get(), fusion.get()));
 }
 
 // Convenience function for comparing two HloInstructions inside of
@@ -699,11 +731,11 @@ TEST_F(HloInstructionTest, IdenticalInstructions) {
   // Create a set of random constant operands to use below. Make them matrices
   // so dimensions are interesting.
   auto operand1 = HloInstruction::CreateConstant(
-      LiteralUtil::CreateR2<float>({{1.0, 2.0}, {3.0, 4.0}}));
+      Literal::CreateR2<float>({{1.0, 2.0}, {3.0, 4.0}}));
   auto operand2 = HloInstruction::CreateConstant(
-      LiteralUtil::CreateR2<float>({{10.0, 20.0}, {30.0, 40.0}}));
-  auto vector_operand = HloInstruction::CreateConstant(
-      LiteralUtil::CreateR1<float>({42.0, 123.0}));
+      Literal::CreateR2<float>({{10.0, 20.0}, {30.0, 40.0}}));
+  auto vector_operand =
+      HloInstruction::CreateConstant(Literal::CreateR1<float>({42.0, 123.0}));
   Shape shape = operand1->shape();
 
   // Convenient short names for the operands.
@@ -929,5 +961,48 @@ TEST_F(HloInstructionTest, CloneOfFusionPreservesShape) {
                                root2->operand(1)->operand(0)->shape()));
 }
 
+TEST_F(HloInstructionTest, CloneSuffixNames) {
+  // Test that the suffix string added to cloned instructions is not
+  // duplicated. Rather a numeric incrementing value should be appended. That
+  // is, we want "foo.clone2", not "foo.clone.clone".
+
+  // Test cloning the same instruction multiple times.
+  auto foo =
+      HloInstruction::CreateParameter(0, ShapeUtil::MakeShape(F32, {}), "foo");
+  EXPECT_EQ(foo->Clone()->name(), "%foo.clone");
+  EXPECT_EQ(foo->Clone()->Clone()->name(), "%foo.clone2");
+  EXPECT_EQ(foo->Clone()->Clone()->Clone()->name(), "%foo.clone3");
+
+  // Test custom suffixes.
+  EXPECT_EQ(foo->Clone("bar")->name(), "%foo.bar");
+  EXPECT_EQ(foo->Clone("bar")->Clone("bar")->name(), "%foo.bar2");
+  EXPECT_EQ(foo->Clone("bar")->Clone("bar")->Clone()->name(),
+            "%foo.bar2.clone");
+
+  // Test instruction name with a dot.
+  auto foo_baz = HloInstruction::CreateParameter(
+      0, ShapeUtil::MakeShape(F32, {}), "foo.baz");
+  EXPECT_EQ(foo_baz->Clone()->name(), "%foo.baz.clone");
+
+  // Test incrementing a large number after the suffix.
+  auto foo_clone234 = HloInstruction::CreateParameter(
+      0, ShapeUtil::MakeShape(F32, {}), "foo.clone234");
+  EXPECT_EQ(foo_clone234->Clone()->name(), "%foo.clone235");
+
+  // Test a non-numeric string after the cloning suffix.
+  auto foo_clonexyz = HloInstruction::CreateParameter(
+      0, ShapeUtil::MakeShape(F32, {}), "foo.clonexyz");
+  EXPECT_EQ(foo_clonexyz->Clone()->name(), "%foo.clonexyz.clone");
+
+  // Test a name with multiple appearances of the suffix.
+  auto foo_clone_clone3 = HloInstruction::CreateParameter(
+      0, ShapeUtil::MakeShape(F32, {}), "foo.clone.clone3");
+  EXPECT_EQ(foo_clone_clone3->Clone()->name(), "%foo.clone.clone4");
+}
+
 }  // namespace
 }  // namespace xla
+
+int main(int argc, char** argv) {
+  return xla::ParseDebugOptionsFlagsAndRunTests(argc, argv);
+}

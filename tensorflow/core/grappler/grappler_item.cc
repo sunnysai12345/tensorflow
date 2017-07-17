@@ -20,6 +20,7 @@ limitations under the License.
 #include <vector>
 
 #include "tensorflow/core/framework/node_def.pb.h"
+#include "tensorflow/core/grappler/op_types.h"
 #include "tensorflow/core/grappler/utils.h"
 
 namespace tensorflow {
@@ -27,6 +28,16 @@ namespace grappler {
 
 std::vector<const NodeDef*> GrapplerItem::MainOpsFanin() const {
   return ComputeTransitiveFanin(graph, fetch);
+}
+
+std::vector<const NodeDef*> GrapplerItem::EnqueueOpsFanin() const {
+  std::vector<string> enqueue_ops;
+  for (const auto& queue_runner : queue_runners) {
+    for (const string& enqueue_op : queue_runner.enqueue_op_name()) {
+      enqueue_ops.push_back(enqueue_op);
+    }
+  }
+  return ComputeTransitiveFanin(graph, enqueue_ops);
 }
 
 std::vector<const NodeDef*> GrapplerItem::InitOpsFanin() const {
@@ -37,7 +48,7 @@ std::vector<const NodeDef*> GrapplerItem::MainVariables() const {
   std::vector<const NodeDef*> fanin = ComputeTransitiveFanin(graph, init_ops);
   std::vector<const NodeDef*> vars;
   for (const NodeDef* node : fanin) {
-    if (node->op() == "Variable" || node->op() == "VariableV2") {
+    if (IsVariable(*node)) {
       vars.push_back(node);
     }
   }
@@ -54,7 +65,7 @@ std::vector<const NodeDef*> ComputeTransitiveFanin(
   std::vector<const NodeDef*> queue;
   for (const string& root : terminal_nodes) {
     const NodeDef* node = name_to_node[NodeName(root)];
-    CHECK(node);
+    CHECK(node) << "Unknown root " << root;
     queue.push_back(node);
   }
 

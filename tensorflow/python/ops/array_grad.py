@@ -271,7 +271,6 @@ def _SplitGrad(op, *grads):
 def _SplitVGrad(op, *grads):
   returnval = array_ops.concat(list(grads), op.inputs[2])
   returnval = [returnval] + [None,] * (len(op.inputs) - 1)
-  print(returnval)
   return returnval
 
 ops.NotDifferentiable("Const")
@@ -355,9 +354,15 @@ def _PreventGradientGrad(op, _):
 def _GatherGrad(op, grad):
   """Gradient for Gather op."""
   # params can be large, so colocate the shape calculation with it.
+  #
+  # params can be very large for sparse model, array_ops.shape raises
+  # exception on the Windows platform when any dimension is larger than
+  # int32. params_shape is not used in optimizer apply_sparse gradients,
+  # so it's fine to convert it back to int32 regardless of truncation.
   params = op.inputs[0]
   with ops.colocate_with(params):
-    params_shape = array_ops.shape(params)
+    params_shape = array_ops.shape(params, out_type=ops.dtypes.int64)
+    params_shape = math_ops.to_int32(params_shape)
 
   # Build appropriately shaped IndexedSlices
   indices = op.inputs[1]
@@ -465,7 +470,6 @@ def _TileGrad(op, grad):
 ops.NotDifferentiable("BroadcastGradientArgs")
 
 
-@ops.RegisterGradient("Pad")
 def _PadGrad(op, grad):
   """Gradient for Pad."""
   # Pad introduces values around the original tensor, so the gradient function
@@ -478,7 +482,14 @@ def _PadGrad(op, grad):
   # Make it a 1-D tensor.
   begin = array_ops.reshape(pad_before, [-1])
   sizes = array_ops.shape(x)
-  return array_ops.slice(grad, begin, sizes), None
+  x_grad = array_ops.slice(grad, begin, sizes)
+  if len(op.inputs) == 3:
+    return x_grad, None, None
+  else:
+    return x_grad, None
+
+ops.RegisterGradient("Pad")(_PadGrad)
+ops.RegisterGradient("PadV2")(_PadGrad)
 
 
 # ReverseSequence is just a permutation.  The gradient permutes back.
@@ -581,6 +592,12 @@ def _QuantizeAndDequantizeV2Grad(_, grad):
   return [grad, None, None]
 
 
+@ops.RegisterGradient("QuantizeAndDequantizeV3")
+def _QuantizeAndDequantizeV3Grad(_, grad):
+  # Only propagate the gradient for the unquantized input.
+  return [grad, None, None, None]
+
+
 @ops.RegisterGradient("ExtractImagePatches")
 def _ExtractImagePatchesGrad(op, grad):
 
@@ -665,3 +682,10 @@ def _ScatterNdGrad(op, grad):
   indices = op.inputs[0]
   updates_grad = array_ops.gather_nd(grad, indices)
   return [None, updates_grad, None]
+
+
+@ops.RegisterGradient("ScatterNdNonAliasingAdd")
+def _ScatterNdNonAliasingAddGrad(op, grad):
+  indices = op.inputs[1]
+  updates_grad = array_ops.gather_nd(grad, indices)
+  return [grad, None, updates_grad]

@@ -16,7 +16,9 @@ limitations under the License.
 #include "tensorflow/core/grappler/optimizers/graph_rewriter.h"
 #include <unordered_map>
 #include <unordered_set>
+#include "tensorflow/core/framework/function.pb.h"
 #include "tensorflow/core/framework/node_def.pb.h"
+#include "tensorflow/core/framework/op_def.pb.h"
 #include "tensorflow/core/grappler/grappler_item.h"
 #include "tensorflow/core/grappler/utils.h"
 
@@ -27,19 +29,100 @@ GraphRewriter::GraphRewriter(const GrapplerItem& item) {
   for (auto& node : item.graph.node()) {
     nodes_[node.name()] = &node;
   }
+
+  std::unordered_set<string> function_names;
+  for (const auto& function : item.graph.library().function()) {
+    function_names.insert(function.signature().name());
+  }
+
+  for (auto& node : item.graph.node()) {
+    RecordConnectivity(node, function_names);
+  }
 }
 
 void GraphRewriter::ForwardInputs(
     const NodeDef& original_node,
     const std::unordered_set<const NodeDef*>& nodes_to_delete,
     NodeDef* new_node) {
-  for (const auto& input : original_node.input()) {
+  ForwardInputsInternal(original_node, nodes_to_delete, new_node);
+  if (!new_node->name().empty()) {
+    optimized_nodes_[new_node->name()] = new_node;
+  }
+}
+
+bool GraphRewriter::DrivesControlDependency(const NodeDef& node) const {
+  return control_dependency_drivers_.find(&node) !=
+         control_dependency_drivers_.end();
+}
+
+bool GraphRewriter::IsDrivenByControlDependency(const NodeDef& node) const {
+  for (const auto& input : node.input()) {
+    CHECK(!input.empty());
+    if (input[0] == '^') {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool GraphRewriter::IsConnectedToFunction(const NodeDef& node) const {
+  return function_neighbors_.find(&node) != function_neighbors_.end();
+}
+
+void GraphRewriter::RecordConnectivity(
+    const NodeDef& node, const std::unordered_set<string>& function_names) {
+  const bool is_function =
+      function_names.find(node.op()) != function_names.end();
+
+  for (const auto& input : node.input()) {
+    int position = 0;
+    string input_node_name = ParseNodeName(input, &position);
+    auto itr = nodes_.find(input_node_name);
+    if (itr == nodes_.end()) {
+      continue;
+    }
+    const NodeDef* fanin = itr->second;
+    if (position < 0) {
+      // This is a control edge
+      control_dependency_drivers_.insert(fanin);
+    } else {
+      // This is a regular edge
+      if (function_names.find(fanin->op()) != function_names.end()) {
+        function_neighbors_.insert(&node);
+      }
+      if (is_function) {
+        function_neighbors_.insert(fanin);
+      }
+    }
+  }
+}
+
+void GraphRewriter::ForwardInputsInternal(
+    const NodeDef& node,
+    const std::unordered_set<const NodeDef*>& nodes_to_delete,
+    NodeDef* new_node) {
+  // To speed things up, use the optimized version of the node if
+  // available.
+  auto itr = optimized_nodes_.find(node.name());
+  if (itr != optimized_nodes_.end()) {
+    for (const string& input : itr->second->input()) {
+      *new_node->add_input() = input;
+    }
+    return;
+  }
+  for (const auto& input : node.input()) {
     string input_node_name = NodeName(input);
     auto itr = nodes_.find(input_node_name);
-    CHECK(itr != nodes_.end());
+    if (itr == nodes_.end()) {
+      // Invalid input, preserve it as is.
+      *new_node->add_input() = input;
+      continue;
+    }
     const NodeDef* input_node = itr->second;
-    if (nodes_to_delete.find(input_node) != nodes_to_delete.end()) {
-      ForwardInputs(*input_node, nodes_to_delete, new_node);
+    if ((input_node->device().empty() || node.device().empty() ||
+         input_node->device() == node.device()) &&
+        nodes_to_delete.find(input_node) != nodes_to_delete.end()) {
+      ForwardInputsInternal(*input_node, nodes_to_delete, new_node);
     } else {
       *new_node->add_input() = input;
     }

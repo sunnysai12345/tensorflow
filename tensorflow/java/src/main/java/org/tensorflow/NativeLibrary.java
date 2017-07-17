@@ -64,9 +64,11 @@ final class NativeLibrary {
     if (resource == null) {
       throw new UnsatisfiedLinkError(
           String.format(
-              "Cannot find TensorFlow native library for OS: %s, architecture: %s. "
-                  + "See https://github.com/tensorflow/tensorflow/tree/master/java/README.md "
-                  + "for possible solutions (such as building the library from source).",
+              "Cannot find TensorFlow native library for OS: %s, architecture: %s. See "
+                  + "https://github.com/tensorflow/tensorflow/tree/master/tensorflow/java/README.md"
+                  + " for possible solutions (such as building the library from source). Additional"
+                  + " information on attempts to find the native library can be obtained by adding"
+                  + " org.tensorflow.NativeLibrary.DEBUG=1 to the system properties of the JVM.",
               os(), architecture()));
     }
     try {
@@ -138,18 +140,8 @@ final class NativeLibrary {
   }
 
   private static String makeResourceName() {
-    // Using string addition instead of more modern functions like
-    // java.nio.file.Paths.get() to make this method usable on Android,
-    // where as of March 2017, the java.nio.files package was not available.
-    final String separator = System.getProperty("file.separator");
-    return "org"
-        + separator
-        + "tensorflow"
-        + separator
-        + "native"
-        + separator
-        + String.format("%s-%s", os(), architecture())
-        + separator
+    return "org/tensorflow/native/"
+        + String.format("%s-%s/", os(), architecture())
         + System.mapLibraryName(LIBNAME);
   }
 
@@ -169,4 +161,6 @@ final class NativeLibrary {
       src.close();
     }
   }
+
+  private NativeLibrary() {}
 }

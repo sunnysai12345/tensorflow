@@ -29,13 +29,13 @@ from setuptools.dist import Distribution
 # This version string is semver compatible, but incompatible with pip.
 # For pip, we will remove all '-' characters from this string, and use the
 # result for pip.
-_VERSION = '1.0.1'
+_VERSION = '1.2.1'
 
 REQUIRED_PACKAGES = [
     'numpy >= 1.11.0',
     'six >= 1.10.0',
     'protobuf >= 3.2.0',
-    'werkzeug >= 0.11.10',
+    'tensorflow-tensorboard',
 ]
 
 project_name = 'tensorflow'
@@ -53,9 +53,13 @@ else:
   # mock comes with unittest.mock for python3, need to install for python2
   REQUIRED_PACKAGES.append('mock >= 2.0.0')
 
+# weakref.finalize was introduced in Python 3.4
+if sys.version_info < (3, 4):
+  REQUIRED_PACKAGES.append('backports.weakref >= 1.0rc1')
+
 # pylint: disable=line-too-long
 CONSOLE_SCRIPTS = [
-    'tensorboard = tensorflow.tensorboard.tensorboard:main',
+    'saved_model_cli = tensorflow.python.tools.saved_model_cli:main',
 ]
 # pylint: enable=line-too-long
 
@@ -184,13 +188,9 @@ setup(
     # Add in any packaged data.
     include_package_data=True,
     package_data={
-        'tensorflow': [EXTENSION_NAME,
-                       'tensorboard/dist/bazel-html-imports.html',
-                       'tensorboard/dist/index.html',
-                       'tensorboard/dist/tf-tensorboard.html',
-                       'tensorboard/lib/css/global.css',
-                       'tensorboard/TAG',
-                     ] + matches,
+        'tensorflow': [
+            EXTENSION_NAME,
+        ] + matches,
     },
     zip_safe=False,
     distclass=BinaryDistribution,
@@ -209,7 +209,6 @@ setup(
         'Topic :: Scientific/Engineering :: Mathematics',
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: Software Development :: Libraries',
-        ],
+    ],
     license='Apache 2.0',
-    keywords='tensorflow tensor machine learning',
-    )
+    keywords='tensorflow tensor machine learning',)

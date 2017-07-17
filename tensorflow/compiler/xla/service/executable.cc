@@ -16,6 +16,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/service/executable.h"
 
 #include "tensorflow/compiler/xla/legacy_flags/service_flags.h"
+#include "tensorflow/compiler/xla/service/hlo_graph_dumper.h"
 #include "tensorflow/compiler/xla/status_macros.h"
 #include "tensorflow/core/lib/io/path.h"
 #include "tensorflow/core/lib/strings/stringprintf.h"
@@ -40,8 +41,7 @@ Executable::ExecuteOnStreams(
 
   std::vector<perftools::gputools::DeviceMemoryBase> return_values(
       run_options.size());
-  for (tensorflow::gtl::ArraySlice<const ExecutableRunOptions>::size_type i = 0;
-       i < run_options.size(); ++i) {
+  for (size_t i = 0; i < run_options.size(); ++i) {
     // We cannot BlockHostUntilDone() on the already-launched executions in case
     // of error, since if the executions communicate, the initially launched
     // executions may never complete if not all executions are running.
@@ -72,7 +72,7 @@ Status Executable::DumpSessionModule() {
 // Removes illegal characters from filenames.
 static void SanitizeFilename(string* name) {
   for (char& c : *name) {
-    if (c == '/' || c == '\\') {
+    if (c == '/' || c == '\\' || c == '[' || c == ']') {
       c = '_';
     }
   }
